@@ -1,14 +1,16 @@
-require("dotenv").config();
-const express = require("express");
-const axios = require("axios");
+import express from "express";
+import axios from "axios";
 
 const app = express();
 app.use(express.json());
 
-// ===== WEBHOOK VERIFY =====
-app.get("/webhook", (req, res) => {
-  const VERIFY_TOKEN = "12345";
+const PORT = process.env.PORT || 10000;
 
+const VERIFY_TOKEN = "mytoken"; // same jo meta me dala
+const ACCESS_TOKEN = process.env.WA_TOKEN;
+
+// 🔹 Webhook verify
+app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
@@ -20,78 +22,48 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-// ===== RECEIVE MESSAGE =====
+// 🔹 Receive messages
 app.post("/webhook", async (req, res) => {
+  console.log("Incoming:", JSON.stringify(req.body, null, 2));
+
   try {
-    const msg = req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const message =
+      req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
 
-    if (!msg) return res.sendStatus(200);
+    if (message) {
+      const from = message.from;
+      const text = message.text?.body;
 
-    const from = msg.from;
-    const text = msg.text?.body || "Hi";
+      console.log("User:", from, "Message:", text);
 
-    console.log("Incoming:", text);
-
-    const reply = await getAIReply(text);
-
-    await sendWhatsAppMessage(from, reply);
+      // 🔹 Reply send
+      await axios.post(
+        `https://graph.facebook.com/v18.0/${process.env.PHONE_ID}/messages`,
+        {
+          messaging_product: "whatsapp",
+          to: from,
+          text: { body: "Reply: " + text },
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${ACCESS_TOKEN}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+    }
 
     res.sendStatus(200);
   } catch (err) {
-    console.error(err);
+    console.error(err.response?.data || err.message);
     res.sendStatus(500);
   }
 });
 
-// ===== OPENAI =====
-async function getAIReply(text) {
-  const response = await axios.post(
-    "https://api.openai.com/v1/chat/completions",
-    {
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a smart WhatsApp assistant. Reply short, human-like, and helpful."
-        },
-        {
-          role: "user",
-          content: text
-        }
-      ]
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_KEY}`,
-        "Content-Type": "application/json"
-      }
-    }
-  );
+app.get("/", (req, res) => {
+  res.send("Server running");
+});
 
-  return response.data.choices[0].message.content;
-}
-
-// ===== SEND MESSAGE =====
-async function sendWhatsAppMessage(to, message) {
-  await axios.post(
-    `https://graph.facebook.com/v18.0/${process.env.PHONE_ID}/messages`,
-    {
-      messaging_product: "whatsapp",
-      to: to,
-      text: { body: message }
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.WA_TOKEN}`,
-        "Content-Type": "application/json"
-      }
-    }
-  );
-}
-
-// ===== START SERVER =====
-const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log("Server running on port " + PORT);
+  console.log("Server running on port", PORT);
 });

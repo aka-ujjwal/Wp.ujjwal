@@ -43,26 +43,29 @@ app.post("/webhook", async (req, res) => {
 
       // 🔥 OpenAI call
       const aiRes = await axios.post(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          model: "gpt-4o-mini",
-          messages: [
-            {
-              role: "system",
-              content: "You are a helpful WhatsApp assistant. Reply short and clear.",
-            },
-            { role: "user", content: text },
-          ],
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${OPENAI_KEY}`,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+  "https://api.groq.com/openai/v1/chat/completions",
+  {
+    model: "llama3-8b-8192",  // ✅ correct model
+    messages: [
+      {
+        role: "system",
+        content: "You are a WhatsApp bot. Reply short and clear.",
+      },
+      {
+        role: "user",
+        content: text,
+      },
+    ],
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.GROQ_API_KEY}`, // ✅ correct key
+      "Content-Type": "application/json",
+    },
+  }
+);
 
-      const reply = aiRes.data.choices[0].message.content;
+const reply = aiRes.data.choices[0].message.content;
 
       console.log("AI:", reply);
 

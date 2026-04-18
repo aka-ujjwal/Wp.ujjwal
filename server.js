@@ -4,15 +4,15 @@ import axios from "axios";
 const app = express();
 app.use(express.json());
 
-// ENV variables
+// ENV
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WA_TOKEN = process.env.WA_TOKEN;
 const PHONE_ID = process.env.PHONE_ID;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-// =======================
-// Webhook verify (GET)
-// =======================
+// ======================
+// Webhook Verify (GET)
+// ======================
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
@@ -26,9 +26,9 @@ app.get("/webhook", (req, res) => {
   }
 });
 
-// =======================
-// Receive messages (POST)
-// =======================
+// ======================
+// Receive Message (POST)
+// ======================
 app.post("/webhook", async (req, res) => {
   try {
     const message =
@@ -36,17 +36,17 @@ app.post("/webhook", async (req, res) => {
 
     if (message) {
       const from = message.from;
-      const text = message.text?.body;
+      const text = message.text?.body || "";
 
       console.log("User:", text);
 
-      // =======================
-      // AI response (Groq)
-      // =======================
+      // ======================
+      // AI RESPONSE (Groq)
+      // ======================
       const aiRes = await axios.post(
         "https://api.groq.com/openai/v1/chat/completions",
         {
-          model: "llama3-70b-8192",
+          model: "llama-3.1-8b-instant",
           messages: [
             {
               role: "system",
@@ -71,9 +71,9 @@ app.post("/webhook", async (req, res) => {
 
       console.log("AI:", reply);
 
-      // =======================
-      // Send reply to WhatsApp
-      // =======================
+      // ======================
+      // Send Reply to WhatsApp
+      // ======================
       await axios.post(
         `https://graph.facebook.com/v18.0/${PHONE_ID}/messages`,
         {
@@ -99,9 +99,9 @@ app.post("/webhook", async (req, res) => {
   }
 });
 
-// =======================
-// Server start
-// =======================
+// ======================
+// Start Server
+// ======================
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);

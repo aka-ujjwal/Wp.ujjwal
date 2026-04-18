@@ -4,24 +4,31 @@ import axios from "axios";
 const app = express();
 app.use(express.json());
 
-const PORT = process.env.PORT || 10000;
+// ENV variables
+const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
+const WA_TOKEN = process.env.WA_TOKEN;
+const PHONE_ID = process.env.PHONE_ID;
+const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
-// ================= VERIFY WEBHOOK =================
+// =======================
+// Webhook verify (GET)
+// =======================
 app.get("/webhook", (req, res) => {
-  const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
-
   const mode = req.query["hub.mode"];
   const token = req.query["hub.verify_token"];
   const challenge = req.query["hub.challenge"];
 
   if (mode && token === VERIFY_TOKEN) {
+    console.log("Webhook verified");
     return res.status(200).send(challenge);
   } else {
     return res.sendStatus(403);
   }
 });
 
-// ================= RECEIVE MESSAGE =================
+// =======================
+// Receive messages (POST)
+// =======================
 app.post("/webhook", async (req, res) => {
   try {
     const message =
@@ -33,7 +40,9 @@ app.post("/webhook", async (req, res) => {
 
       console.log("User:", text);
 
-      // 🔥 AI (Groq)
+      // =======================
+      // AI response (Groq)
+      // =======================
       const aiRes = await axios.post(
         "https://api.groq.com/openai/v1/chat/completions",
         {
@@ -41,7 +50,7 @@ app.post("/webhook", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "Reply short like WhatsApp chat.",
+              content: "You are a helpful WhatsApp bot. Reply short and clear.",
             },
             {
               role: "user",
@@ -51,19 +60,22 @@ app.post("/webhook", async (req, res) => {
         },
         {
           headers: {
-            Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
+            Authorization: `Bearer ${GROQ_API_KEY}`,
             "Content-Type": "application/json",
           },
         }
       );
 
-      const reply = aiRes.data.choices[0].message.content;
+      const reply =
+        aiRes.data.choices?.[0]?.message?.content || "No reply";
 
       console.log("AI:", reply);
 
-      // 📩 Send reply to WhatsApp
+      // =======================
+      // Send reply to WhatsApp
+      // =======================
       await axios.post(
-        `https://graph.facebook.com/v19.0/${process.env.PHONE_ID}/messages`,
+        `https://graph.facebook.com/v18.0/${PHONE_ID}/messages`,
         {
           messaging_product: "whatsapp",
           to: from,
@@ -71,23 +83,26 @@ app.post("/webhook", async (req, res) => {
         },
         {
           headers: {
-            Authorization: `Bearer ${process.env.WA_TOKEN}`,
+            Authorization: `Bearer ${WA_TOKEN}`,
             "Content-Type": "application/json",
           },
         }
       );
 
-      console.log("Message sent");
+      console.log("Reply sent");
     }
 
     res.sendStatus(200);
   } catch (err) {
     console.error("ERROR:", err.response?.data || err.message);
-    res.sendStatus(500);
+    res.sendStatus(200);
   }
 });
 
-// ================= START SERVER =================
+// =======================
+// Server start
+// =======================
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log("Server running on port", PORT);
+  console.log(`Server running on port ${PORT}`);
 });

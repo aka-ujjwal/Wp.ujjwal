@@ -4,14 +4,22 @@ import axios from "axios";
 const app = express();
 app.use(express.json());
 
-// ENV
+// ======================
+// ENV VARIABLES
+// ======================
 const VERIFY_TOKEN = process.env.VERIFY_TOKEN;
 const WA_TOKEN = process.env.WA_TOKEN;
 const PHONE_ID = process.env.PHONE_ID;
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 
 // ======================
-// Webhook Verify (GET)
+// MEMORY (IN-RAM)
+// ======================
+const memory = {};
+const MAX_HISTORY = 10;
+
+// ======================
+// WEBHOOK VERIFY
 // ======================
 app.get("/webhook", (req, res) => {
   const mode = req.query["hub.mode"];
@@ -27,7 +35,7 @@ app.get("/webhook", (req, res) => {
 });
 
 // ======================
-// Receive Message (POST)
+// RECEIVE MESSAGE
 // ======================
 app.post("/webhook", async (req, res) => {
   try {
@@ -41,7 +49,20 @@ app.post("/webhook", async (req, res) => {
       console.log("User:", text);
 
       // ======================
-      // AI RESPONSE (Groq)
+      // MEMORY SAVE (USER)
+      // ======================
+      if (!memory[from]) memory[from] = [];
+
+      memory[from].push({
+        role: "user",
+        content: text,
+      });
+
+      // limit memory
+      memory[from] = memory[from].slice(-MAX_HISTORY);
+
+      // ======================
+      // AI CALL (GROQ)
       // ======================
       const aiRes = await axios.post(
         "https://api.groq.com/openai/v1/chat/completions",
@@ -50,12 +71,10 @@ app.post("/webhook", async (req, res) => {
           messages: [
             {
               role: "system",
-              content: "You are a helpful WhatsApp bot. Reply short and clear.",
+              content:
+                "You are a helpful WhatsApp assistant. Reply short and clear.",
             },
-            {
-              role: "user",
-              content: text,
-            },
+            ...memory[from],
           ],
         },
         {
@@ -72,7 +91,17 @@ app.post("/webhook", async (req, res) => {
       console.log("AI:", reply);
 
       // ======================
-      // Send Reply to WhatsApp
+      // MEMORY SAVE (AI)
+      // ======================
+      memory[from].push({
+        role: "assistant",
+        content: reply,
+      });
+
+      memory[from] = memory[from].slice(-MAX_HISTORY);
+
+      // ======================
+      // SEND TO WHATSAPP
       // ======================
       await axios.post(
         `https://graph.facebook.com/v18.0/${PHONE_ID}/messages`,
@@ -100,9 +129,10 @@ app.post("/webhook", async (req, res) => {
 });
 
 // ======================
-// Start Server
+// SERVER START
 // ======================
 const PORT = process.env.PORT || 10000;
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });

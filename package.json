@@ -1,13 +1,15 @@
 {
-  "name": "whatsapp-ai-agent",
+  "name": "whatsapp-ai-bot",
   "version": "1.0.0",
+  "description": "WhatsApp AI Bot with MongoDB Memory",
   "main": "server.js",
+  "type": "module",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "axios": "^1.6.0",
-    "dotenv": "^16.4.0",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "mongoose": "^7.6.0"
   }
 }
